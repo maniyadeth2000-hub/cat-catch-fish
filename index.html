@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Cat Catch Fish</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+
+  #playArea {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(180deg, #87CEEB 0%, #B0E0F0 100%);
+    overflow: hidden;
+  }
+
+  #header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    background: rgba(255, 255, 255, 0.85);
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #222;
+    font-weight: 600;
+    font-size: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  #header > div { display: flex; align-items: center; gap: 6px; }
+
+  #score.flash { animation: flashScore 320ms ease; display: inline-block; }
+
+  @keyframes flashScore {
+    0%   { transform: scale(1);    color: #222; }
+    50%  { transform: scale(1.45); color: #2a8c2a; }
+    100% { transform: scale(1);    color: #222; }
+  }
+
+  #cat {
+    position: absolute;
+    bottom: 20px;
+    left: 0;
+    font-size: 60px;
+    line-height: 1;
+    z-index: 5;
+    will-change: transform;
+    pointer-events: none;
+  }
+
+  .fish {
+    position: absolute;
+    top: 0;
+    left: 0;
+    font-size: 40px;
+    line-height: 1;
+    z-index: 4;
+    will-change: transform;
+    pointer-events: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .fish.caught {
+    pointer-events: none;
+    animation: caughtFish 260ms ease forwards;
+  }
+
+  @keyframes caughtFish {
+    0%   { transform: var(--end-transform); opacity: 1; }
+    100% { transform: var(--end-transform) scale(1.7); opacity: 0; }
+  }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    padding: 16px;
+  }
+
+  .panel {
+    background: white;
+    border-radius: 16px;
+    padding: 32px 28px;
+    text-align: center;
+    max-width: 92%;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  }
+
+  .panel h1 {
+    font-size: 28px;
+    color: #222;
+    margin-bottom: 10px;
+  }
+
+  .panel p {
+    color: #555;
+    margin-bottom: 18px;
+    font-size: 15px;
+    line-height: 1.4;
+  }
+
+  .score-final {
+    font-size: 44px;
+    font-weight: 700;
+    color: #2a8c2a;
+    margin: 6px 0 18px;
+  }
+
+  .btn {
+    background: #333333;
+    color: white;
+    border: none;
+    padding: 14px 28px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 10px;
+    cursor: pointer;
+    min-height: 44px;
+    min-width: 140px;
+    font-family: inherit;
+    transition: background 150ms ease, transform 100ms ease;
+  }
+
+  .btn:hover  { background: #4a4a4a; }
+  .btn:active { transform: scale(0.96); }
+  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .err {
+    color: #c0392b;
+    font-size: 13px;
+    margin-top: 8px;
+    min-height: 18px;
+  }
+
+  .hidden { display: none !important; }
+
+  #mobileControls {
+    position: absolute;
+    bottom: 24px;
+    left: 0;
+    right: 0;
+    display: none;
+    justify-content: space-between;
+    padding: 0 20px;
+    z-index: 8;
+    pointer-events: none;
+  }
+
+  .mctl {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.55);
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    color: #222;
+    font-size: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+    -webkit-tap-highlight-color: transparent;
+    backdrop-filter: blur(4px);
+  }
+
+  .mctl:active { background: rgba(255, 255, 255, 0.9); }
+
+  @media (hover: none) and (pointer: coarse) {
+    #mobileControls { display: flex; }
+  }
+
+  @media (max-width: 700px) {
+    #mobileControls { display: flex; }
+    .panel h1 { font-size: 22px; }
+    .score-final { font-size: 38px; }
+    #cat  { font-size: 54px; }
+    .fish { font-size: 36px; }
+    #header { font-size: 14px; padding: 10px 14px; }
+  }
+</style>
+</head>
+<body>
+<div id="playArea">
+  <div id="header">
+    <div>Score: <span id="score">0</span></div>
+    <div id="state">Ready</div>
+    <div>Time: <span id="timer">60</span>s</div>
+  </div>
+
+  <div id="cat">🐱</div>
+
+  <div id="mobileControls">
+    <div id="btnLeft"  class="mctl" aria-label="Move left">◄</div>
+    <div id="btnRight" class="mctl" aria-label="Move right">►</div>
+  </div>
+
+  <div id="readyOverlay" class="overlay">
+    <div class="panel">
+      <h1>Cat Catch Fish</h1>
+      <p>Catch as many fish as you can in 60 seconds.<br>
+         Arrow keys (or on-screen buttons) move the cat.<br>
+         Move the cat into a falling fish to catch it.</p>
+      <button id="startBtn" class="btn">Start</button>
+      <div class="err" id="startErr"></div>
+    </div>
+  </div>
+
+  <div id="gameOverOverlay" class="overlay hidden">
+    <div class="panel">
+      <h1>Game Over</h1>
+      <p>You caught</p>
+      <div class="score-final"><span id="finalScore">0</span> fish</div>
+      <button id="restartBtn" class="btn">Play Again</button>
+      <div class="err" id="restartErr"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---- Config (per brief) ----
+  const GAME_DURATION       = 60;    // seconds
+  const SPAWN_INTERVAL_START = 1500; // ms
+  const SPAWN_INTERVAL_END   = 400;  // ms
+  const FALL_SPEED_START     = 110;  // px/sec (slow)
+  const FALL_SPEED_END       = 330;  // px/sec (~3x)
+  const CAT_SPEED            = 380;  // px/sec horizontal
+
+  // ---- DOM ----
+  const playArea        = document.getElementById('playArea');
+  const header          = document.getElementById('header');
+  const cat             = document.getElementById('cat');
+  const scoreEl         = document.getElementById('score');
+  const timerEl         = document.getElementById('timer');
+  const stateEl         = document.getElementById('state');
+  const readyOverlay    = document.getElementById('readyOverlay');
+  const gameOverOverlay = document.getElementById('gameOverOverlay');
+  const startBtn        = document.getElementById('startBtn');
+  const restartBtn      = document.getElementById('restartBtn');
+  const finalScoreEl    = document.getElementById('finalScore');
+  const btnLeft         = document.getElementById('btnLeft');
+  const btnRight        = document.getElementById('btnRight');
+
+  // ---- State ----
+  let state         = 'ready'; // ready | playing | paused | gameover
+  let score         = 0;
+  let elapsedMs     = 0;
+  let lastFrame     = 0;
+  let timeSinceSpawn = 0;
+  let fishes        = []; // { el, x, y, w, h, speed, caught }
+  let catX          = 0;
+  let keys          = { left: false, right: false };
+  let touches       = { left: false, right: false };
+  let rafId         = null;
+  let busyButton    = false; // prevents rapid double-clicks on Start / Play Again
+
+  // ---- Helpers ----
+  const playW = () => playArea.clientWidth;
+  const playH = () => playArea.clientHeight;
+  const catW  = () => cat.offsetWidth  || 60;
+  const catH  = () => cat.offsetHeight || 60;
+
+  function lerp(a, b, t) {
+    t = Math.max(0, Math.min(1, t));
+    return a + (b - a) * t;
+  }
+
+  function progress() {
+    return elapsedMs / (GAME_DURATION * 1000);
+  }
+
+  function currentSpawnInterval() {
+    return lerp(SPAWN_INTERVAL_START, SPAWN_INTERVAL_END, progress());
+  }
+
+  function currentFallSpeed() {
+    return lerp(FALL_SPEED_START, FALL_SPEED_END, progress());
+  }
+
+  function setState(s) {
+    state = s;
+    const label = { ready: 'Ready', playing: 'Playing', paused: 'Paused', gameover: 'Game Over' };
+    stateEl.textContent = label[s] || s;
+  }
+
+  function applyCatPosition() {
+    cat.style.transform = `translateX(${catX}px)`;
+  }
+
+  function clampCat() {
+    const max = Math.max(0, playW() - catW());
+    if (catX < 0)   catX = 0;
+    if (catX > max) catX = max;
+    applyCatPosition();
+  }
+
+  function centreCat() {
+    catX = Math.max(0, (playW() - catW()) / 2);
+    applyCatPosition();
+  }
+
+  function flashScore() {
+    scoreEl.classList.remove('flash');
+    void scoreEl.offsetWidth; // restart animation
+    scoreEl.classList.add('flash');
+  }
+
+  // ---- Fish ----
+  function spawnFish() {
+    const el = document.createElement('div');
+    el.className = 'fish';
+    el.textContent = '🐟';
+    playArea.appendChild(el);
+
+    const w = el.offsetWidth  || 40;
+    const h = el.offsetHeight || 40;
+    const headerH = header.offsetHeight || 0;
+    const minX = 4;
+    const maxX = Math.max(minX, playW() - w - 4);
+    const x = minX + Math.random() * (maxX - minX);
+    const y = headerH + 6;
+
+    const fish = { el, x, y, w, h, speed: currentFallSpeed(), caught: false };
+    el.style.transform = `translate(${x}px, ${y}px)`;
+    fishes.push(fish);
+  }
+
+  function catchFish(fish) {
+    if (fish.caught) return;
+    fish.caught = true;
+    score += 1;
+    scoreEl.textContent = score;
+    flashScore();
+
+    fish.el.style.setProperty('--end-transform', `translate(${fish.x}px, ${fish.y}px)`);
+    fish.el.classList.add('caught');
+    setTimeout(() => {
+      if (fish.el.parentNode) fish.el.parentNode.removeChild(fish.el);
+    }, 280);
+
+    const idx = fishes.indexOf(fish);
+    if (idx !== -1) fishes.splice(idx, 1);
+  }
+
+  function clearFishes() {
+    fishes.forEach(f => { if (f.el.parentNode) f.el.parentNode.removeChild(f.el); });
+    fishes = [];
+  }
+
+  // ---- Movement & frame loop ----
+  function moveCat(dt) {
+    let dir = 0;
+    if (keys.left  || touches.left)  dir -= 1;
+    if (keys.right || touches.right) dir += 1;
+    if (dir !== 0) {
+      catX += dir * CAT_SPEED * (dt / 1000);
+      clampCat();
+    }
+  }
+
+  function updateFishes(dt) {
+    const ground    = playH();
+    const catLeft   = catX;
+    const catRight  = catX + catW();
+    const catBottom = playH() - 20;       // matches CSS bottom: 20px on #cat
+    const catTop    = catBottom - catH();
+
+    for (let i = fishes.length - 1; i >= 0; i--) {
+      const f = fishes[i];
+      if (f.caught) continue;
+
+      f.y += f.speed * (dt / 1000);
+
+      if (f.y > ground) {
+        if (f.el.parentNode) f.el.parentNode.removeChild(f.el);
+        fishes.splice(i, 1);
+        continue;
+      }
+
+      f.el.style.transform = `translate(${f.x}px, ${f.y}px)`;
+
+      // AABB collision with the cat
+      const fLeft   = f.x;
+      const fRight  = f.x + f.w;
+      const fTop    = f.y;
+      const fBottom = f.y + f.h;
+      if (catLeft < fRight && catRight > fLeft && catTop < fBottom && catBottom > fTop) {
+        catchFish(f);
+      }
+    }
+  }
+
+  function frame(ts) {
+    if (state !== 'playing') { rafId = null; return; }
+    if (!lastFrame) lastFrame = ts;
+    let dt = ts - lastFrame;
+    if (dt > 100) dt = 100; // clamp long pauses (focus loss)
+    lastFrame = ts;
+
+    elapsedMs += dt;
+    const remaining = Math.max(0, Math.ceil((GAME_DURATION * 1000 - elapsedMs) / 1000));
+    timerEl.textContent = remaining;
+
+    moveCat(dt);
+    updateFishes(dt);
+
+    timeSinceSpawn += dt;
+    if (timeSinceSpawn >= currentSpawnInterval()) {
+      timeSinceSpawn = 0;
+      spawnFish();
+    }
+
+    if (elapsedMs >= GAME_DURATION * 1000) {
+      endGame();
+      return;
+    }
+
+    rafId = requestAnimationFrame(frame);
+  }
+
+  // ---- Game flow ----
+  function startGame() {
+    if (busyButton) return;
+    busyButton = true;
+    setTimeout(() => { busyButton = false; }, 500);
+
+    document.getElementById('startErr').textContent   = '';
+    document.getElementById('restartErr').textContent = '';
+
+    try {
+      score = 0;
+      elapsedMs = 0;
+      timeSinceSpawn = 0;
+      lastFrame = 0;
+      scoreEl.textContent = '0';
+      timerEl.textContent = GAME_DURATION;
+      clearFishes();
+      centreCat();
+      readyOverlay.classList.add('hidden');
+      gameOverOverlay.classList.add('hidden');
+      setState('playing');
+      rafId = requestAnimationFrame(frame);
+    } catch (e) {
+      document.getElementById('startErr').textContent = 'Could not start the game. Please refresh.';
+    }
+  }
+
+  function endGame() {
+    setState('gameover');
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    clearFishes();
+    finalScoreEl.textContent = score;
+    gameOverOverlay.classList.remove('hidden');
+  }
+
+  function pauseGame() {
+    if (state !== 'playing') return;
+    setState('paused');
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    keys.left = keys.right = false;
+    touches.left = touches.right = false;
+  }
+
+  function resumeGame() {
+    if (state !== 'paused') return;
+    setState('playing');
+    lastFrame = 0;
+    rafId = requestAnimationFrame(frame);
+  }
+
+  // ---- Input ----
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') e.preventDefault();
+    if (state !== 'playing') return;
+    if (e.key === 'ArrowLeft')  keys.left  = true;
+    if (e.key === 'ArrowRight') keys.right = true;
+  });
+
+  document.addEventListener('keyup', e => {
+    if (e.key === 'ArrowLeft')  keys.left  = false;
+    if (e.key === 'ArrowRight') keys.right = false;
+  });
+
+  function bindButton(btn, side) {
+    const set = v => { touches[side] = v; };
+    btn.addEventListener('touchstart',  e => { e.preventDefault(); set(true);  }, { passive: false });
+    btn.addEventListener('touchend',    e => { e.preventDefault(); set(false); }, { passive: false });
+    btn.addEventListener('touchcancel', () => set(false));
+    btn.addEventListener('mousedown',   () => set(true));
+    btn.addEventListener('mouseup',     () => set(false));
+    btn.addEventListener('mouseleave',  () => set(false));
+  }
+  bindButton(btnLeft,  'left');
+  bindButton(btnRight, 'right');
+
+  startBtn.addEventListener('click',  startGame);
+  restartBtn.addEventListener('click', startGame);
+
+  // ---- Pause on tab/window blur ----
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) pauseGame();
+    else if (state === 'paused') resumeGame();
+  });
+  window.addEventListener('blur',  pauseGame);
+  window.addEventListener('focus', () => {
+    if (!document.hidden && state === 'paused') resumeGame();
+  });
+
+  // ---- Resize ----
+  window.addEventListener('resize', () => {
+    clampCat();
+    const w = playW();
+    fishes.forEach(f => {
+      if (f.x + f.w > w) f.x = Math.max(0, w - f.w);
+      f.el.style.transform = `translate(${f.x}px, ${f.y}px)`;
+    });
+  });
+
+  // ---- Init ----
+  centreCat();
+  setState('ready');
+})();
+</script>
+</body>
+</html>
